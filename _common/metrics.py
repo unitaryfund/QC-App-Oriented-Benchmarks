@@ -3270,3 +3270,12 @@ def test_metrics ():
     plot_metrics()
 
 #test_metrics()
+
+############################################
+# DATA EXTRACTION - METRIQ DATA
+def extract_data():
+    """Extract data from benchmark."""
+    # sort the group metrics (in case they weren't sorted when collected)
+    sort_group_metrics()
+
+    return group_metrics

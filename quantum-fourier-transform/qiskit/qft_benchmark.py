@@ -1,7 +1,7 @@
 """
 Quantum Fourier Transform Benchmark Program - Qiskit
 """
-
+import argparse
 import math
 import sys
 import time
@@ -334,7 +334,15 @@ def run (min_qubits = 2, max_qubits = 8, max_circuits = 3, num_shots = 100,
     print("\nInverse QFT Circuit ="); print(QFTI_)
      
     # Plot metrics for all circuit sizes
-    metrics.plot_metrics(f"Benchmark Results - Quantum Fourier Transform ({method}) - Qiskit")
+    #metrics.plot_metrics(f"Benchmark Results - Quantum Fourier Transform ({method}) - Qiskit")
+    return metrics.extract_data()
 
 # if main, execute method 1
-if __name__ == '__main__': run()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run benchmarking")
+    parser.add_argument("-backend_id", default="qasm_simulator", help="Backend simulator or hardware string", type=str)
+
+    args = parser.parse_args()
+
+    backend_id = args.backend_id
+    print(run(backend_id=backend_id))
