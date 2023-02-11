@@ -1,7 +1,7 @@
 """
 Amplitude Estimation Benchmark Program via Phase Estimation - Qiskit
 """
-
+import argparse
 import copy
 import sys
 import time
@@ -311,8 +311,24 @@ def run(min_qubits=3, max_qubits=8, max_circuits=3, num_shots=100,
     print("\nInverse QFT Circuit ="); print(QFTI_ if QC_ != None else "  ... too large!")
 
     # Plot metrics for all circuit sizes
-    metrics.plot_metrics("Benchmark Results - Amplitude Estimation - Qiskit")
+    #metrics.plot_metrics("Benchmark Results - Amplitude Estimation - Qiskit")
+    return metrics.extract_data()
 
 
 # if main, execute method
-if __name__ == '__main__': run()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run benchmarking")
+
+    parser.add_argument("-backend_id", default="qasm_simulator", help="Backend simulator or hardware string", type=str)
+    parser.add_argument("-min_qubits", default=2, help="Minimum number of qubits.", type=int)
+    parser.add_argument("-max_qubits", default=8, help="Maximum number of qubits", type=int)
+    parser.add_argument("-num_shots", default=100, help="Number of shots.", type=int)
+
+    args = parser.parse_args()
+
+    backend_id = args.backend_id
+    min_qubits = args.min_qubits
+    max_qubits = args.max_qubits
+    num_shots = args.max_qubits
+
+    print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))

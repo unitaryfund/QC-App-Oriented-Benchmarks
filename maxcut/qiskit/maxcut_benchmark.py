@@ -1,7 +1,7 @@
 """
 MaxCut Benchmark Program - Qiskit
 """
-
+import argparse
 import datetime
 import json
 import logging
@@ -1349,11 +1349,27 @@ def plot_results_from_data(num_shots=100, rounds=1, degree=3, max_iter=30, max_c
     all_widths = list(metrics.circuit_metrics_final_iter.keys())
     all_widths = [int(ii) for ii in all_widths]
     list_of_widths = [all_widths[-1]]
-    metrics.plot_cutsize_distribution(suptitle=suptitle,options=options, suffix=suffix, list_of_widths = list_of_widths)
+    #metrics.plot_cutsize_distribution(suptitle=suptitle,options=options, suffix=suffix, list_of_widths = list_of_widths)
     
-    metrics.plot_angles_polar(suptitle = suptitle, options = options, suffix = suffix)
+    #metrics.plot_angles_polar(suptitle = suptitle, options = options, suffix = suffix)
+    return metrics.extract_data()
 
 # if main, execute method
-if __name__ == '__main__': run()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run benchmarking")
+
+    parser.add_argument("-backend_id", default="qasm_simulator", help="Backend simulator or hardware string", type=str)
+    parser.add_argument("-min_qubits", default=2, help="Minimum number of qubits.", type=int)
+    parser.add_argument("-max_qubits", default=8, help="Maximum number of qubits", type=int)
+    parser.add_argument("-num_shots", default=100, help="Number of shots.", type=int)
+
+    args = parser.parse_args()
+
+    backend_id = args.backend_id
+    min_qubits = args.min_qubits
+    max_qubits = args.max_qubits
+    num_shots = args.max_qubits
+
+    print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
 
 # %%

@@ -1,7 +1,7 @@
 """
 Variational Quantum Eigensolver Benchmark Program - Qiskit
 """
-
+import argparse
 import json
 import os
 import sys
@@ -424,7 +424,23 @@ def run(min_qubits=4, max_qubits=10, max_circuits=3, num_shots=4092, method=1,
     print("\nCluster Operator Example 'Cluster Op' ="); print(CO_ if CO_ != None else " ... too large!")
 
     # Plot metrics for all circuit sizes
-    metrics.plot_metrics(f"Benchmark Results - VQE Simulation ({method}) - Qiskit")
+    #metrics.plot_metrics(f"Benchmark Results - VQE Simulation ({method}) - Qiskit")
+    return metrics.extract_data()
 
 # if main, execute methods     
-if __name__ == "__main__": run()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run benchmarking")
+
+    parser.add_argument("-backend_id", default="qasm_simulator", help="Backend simulator or hardware string", type=str)
+    parser.add_argument("-min_qubits", default=2, help="Minimum number of qubits.", type=int)
+    parser.add_argument("-max_qubits", default=8, help="Maximum number of qubits", type=int)
+    parser.add_argument("-num_shots", default=100, help="Number of shots.", type=int)
+
+    args = parser.parse_args()
+
+    backend_id = args.backend_id
+    min_qubits = args.min_qubits
+    max_qubits = args.max_qubits
+    num_shots = args.max_qubits
+
+    print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
