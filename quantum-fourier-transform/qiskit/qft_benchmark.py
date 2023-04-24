@@ -14,6 +14,10 @@ sys.path[1:1] = [ "../../_common", "../../_common/qiskit" ]
 import execute as ex
 import metrics as metrics
 
+import math
+from collections import Counter
+from pyqrack import QrackSimulator
+
 np.random.seed(0)
 
 verbose = False
@@ -337,6 +341,35 @@ def run (min_qubits = 2, max_qubits = 8, max_circuits = 3, num_shots = 100,
     #metrics.plot_metrics(f"Benchmark Results - Quantum Fourier Transform ({method}) - Qiskit")
     return metrics.extract_data()
 
+
+# Hypothetically, the register_width might be known from any permutation output,
+# but there might be cases where that wouldn't be true.
+# Also, for convenience, PyQrack can interpret a Qiskit circuit,
+# (with or without its Qiskit "Provider,"" or a PyZX circuit, or Cirq with its plugin, only)
+def fidelities_from_measurement_results(qiskit_circuit, register_width, ideal_shots = 1024):
+    
+    sim = QrackSimulator(qubitCount=register_width, qiskitCircuit = qiskit_circuit)
+    ideal_results = sim.measure_shots(list(range(register_width)), ideal_shots)
+
+    fidelity_list = []
+    for _, measurement_list in ideal_results.items():
+        # This is a logically-grouped batch of qubit measurement results, as a list of "permutations."
+        histogram = Counter(measurement_list)
+        shot_count = sum(histogram.values())
+        histogram = dict(histogram)
+        fidelity = 0
+        for qubit_permutation in histogram.keys():
+            ideal_normalized_frequency = ideal_results[qubit_permutation] if qubit_permutation in ideal_results else 0
+            normalized_frequency = histogram[qubit_permutation]
+            fidelity += math.sqrt(ideal_normalized_frequency * normalized_frequency)
+        fidelity *= fidelity
+        # See https://github.com/SRI-International/QC-App-Oriented-Benchmarks/blob/master/_doc/POLARIZATION_FIDELITY.md
+        normalized_fidelity = (fidelity - 1) / (1 - (1 << register_width)) + 1
+        fidelity = 1 - fidelity
+        fidelity_list.append((fidelity, normalized_fidelity))
+                               
+    return fidelity_list
+ 
 # if main, execute method 1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run benchmarking")
@@ -353,4 +386,51 @@ if __name__ == '__main__':
     max_qubits = args.max_qubits
     num_shots = args.max_qubits
 
-    print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
+    # # QUANTINUUM
+    # from qiskit.transpiler.passes import RemoveBarriers
+    # from api_wrappers import QuantinuumAPI as QAPI
+    from qiskit import transpile
+
+    basis_gates = ['u1', 'u2', 'u3', 'cx', 'u']
+
+    qc = QuantumFourierTransform(2, 1)
+    qc = transpile(qc, basis_gates=basis_gates)
+    results = {'c0': ['10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '00', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10']}
+    fidelities_from_measurement_results(qc)
+    print(results)
+    # openqasm = qc.qasm()
+
+    # machine = 'H1-2E'
+    # shots = 100
+    # # Submit circuit to the emulator
+    # qapi = QAPI(machine=machine)
+    # job_id = qapi.submit_job(openqasm,
+    #                          shots=shots,
+    #                          machine=machine, 
+    #                          name='circuit emulation')
+   
+    # status = qapi.retrieve_job_status(job_id)
+    
+    # print(status)
+    
+    # results = qapi.retrieve_job(job_id)
+  
+    # print(results)
+    # # QUANTINUUM
+
+    # # QUANDELA
+    # import qiskit
+    # import perceval as pcvl
+    # from perceval.converters import QiskitConverter
+    # from perceval.components import catalog
+
+    # token_qcloud = '_T_eyJhbGciOiJIUzUxMiIsImlhdCI6MTY3OTk1NTIxMywiZXhwIjoxNjgyNTQ3MjEzfQ.eyJpZCI6MjgwfQ.Mcc5erbyzhfBT8SYugGpExNkhfl0oEU1GvjDI5-u0hK5LCEq--m4c581Ak4unTMIV5OKLU29uuX9wKen-0AvlA'
+
+    # # Then convert the Quantum Circuit with Perceval QiskitConvertor
+    # qiskit_converter = QiskitConverter(catalog, backend_name="Naive")
+    # quantum_processor = qiskit_converter.convert(qc)
+    # #pcvl.pdisplay(quantum_processor, recursive=True)
+
+    # # QUANDELA
+
+    #print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
