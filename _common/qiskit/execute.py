@@ -105,7 +105,7 @@ result_handler = None
 job_mode = False
 
 # Print progress of execution
-verbose = False;
+verbose = True
 
 # Print additional time metrics for each stage of execution
 verbose_time = False;
@@ -210,6 +210,10 @@ def set_execution_target(backend_id='qasm_simulator',
                 backend = provider.get_backend(backend_id)
             else:
                 print(authentication_error_msg.format("IBMQ"))
+
+    # UNITARYFUND ADDED START
+    backend_id = "H1-2E"
+    # UNITARYFUND ADDED END
 
     # create an informative device name
     device_name = backend_id
@@ -737,7 +741,7 @@ def job_complete(job):
 
     # get job result (DEVNOTE: this might be different for diff targets)
     result = None
-        
+    
     if job.status() == JobStatus.DONE:
         result = job.result()
         # print("... result = ", str(result))
@@ -763,6 +767,9 @@ def job_complete(job):
         if type(actual_shots) is str:
             actual_shots = int(actual_shots)
         
+        # UNITARYFUND ADDED START
+        actual_shots = active_circuit["shots"]
+        # UNITARYFUND ADDED END
         if actual_shots != active_circuit["shots"]:
             print(f'WARNING: requested shots not equal to actual shots: {active_circuit["shots"]} != {actual_shots} ')
         

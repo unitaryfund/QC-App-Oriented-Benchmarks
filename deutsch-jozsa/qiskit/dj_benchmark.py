@@ -13,6 +13,11 @@ sys.path[1:1] = [ "../../_common", "../../_common/qiskit" ]
 import execute as ex
 import metrics as metrics
 
+import math
+from collections import Counter
+from pyqrack import QrackSimulator
+
+
 np.random.seed(0)
 
 verbose = False
@@ -204,6 +209,34 @@ def run (min_qubits=3, max_qubits=8, max_circuits=3, num_shots=100,
     #metrics.plot_metrics("Benchmark Results - Deutsch-Jozsa - Qiskit")
     return metrics.extract_data()
 
+# Hypothetically, the register_width might be known from any permutation output,
+# but there might be cases where that wouldn't be true.
+# Also, for convenience, PyQrack can interpret a Qiskit circuit,
+# (with or without its Qiskit "Provider,"" or a PyZX circuit, or Cirq with its plugin, only)
+def fidelities_from_measurement_results(results, qiskit_circuit, register_width, ideal_shots = 1024):
+    
+    sim = QrackSimulator(qubitCount=register_width, qiskitCircuit = qiskit_circuit)
+    ideal_result = sim.measure_shots(list(range(register_width)), ideal_shots)
+
+    fidelity_list = []
+    for _, measurement_list in results.items():
+        # This is a logically-grouped batch of qubit measurement results, as a list of "permutations."
+        histogram = Counter(measurement_list)
+        shot_count = sum(histogram.values())
+        histogram = dict(histogram)
+        fidelity = 0
+        for qubit_permutation in histogram.keys():
+            ideal_normalized_frequency = ideal_result[qubit_permutation] if qubit_permutation in ideal_result else 0
+            normalized_frequency = histogram[qubit_permutation]
+            fidelity += math.sqrt(ideal_normalized_frequency * normalized_frequency)
+        fidelity *= fidelity
+        # See https://github.com/SRI-International/QC-App-Oriented-Benchmarks/blob/master/_doc/POLARIZATION_FIDELITY.md
+        normalized_fidelity = (fidelity - 1) / (1 - (1 << register_width)) + 1
+        fidelity = 1 - fidelity
+        fidelity_list.append((fidelity, normalized_fidelity))
+                               
+    return fidelity_list
+
 # if main, execute method
 if __name__ == '__main__':
 
@@ -221,4 +254,32 @@ if __name__ == '__main__':
     max_qubits = args.max_qubits
     num_shots = args.max_qubits
 
-    print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
+    #print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
+    # QUANTINUUM
+    from api_wrappers import QuantinuumAPI as QAPI
+    from qiskit import transpile
+
+    basis_gates = ['u1', 'u2', 'u3', 'cx', 'u']
+
+    num_qubits = 3
+    qc = DeutschJozsa(num_qubits, 1)
+    qc = transpile(qc, basis_gates=basis_gates)
+    openqasm = qc.qasm()
+
+    machine = 'H1-2E'
+    shots = 1_000
+    # Submit circuit to the emulator
+    qapi = QAPI(machine=machine)
+    job_id = qapi.submit_job(openqasm,
+                             shots=shots,
+                             machine=machine, 
+                             name='circuit emulation')
+   
+    status = qapi.retrieve_job_status(job_id)
+    
+    print(status)
+    
+    results = qapi.retrieve_job(job_id)
+    results = results["results"]
+    print(fidelities_from_measurement_results(results=results, qiskit_circuit=qc, register_width=num_qubits, ideal_shots=shots))
+    # QUANTINUUM

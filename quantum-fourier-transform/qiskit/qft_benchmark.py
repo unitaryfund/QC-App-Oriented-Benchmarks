@@ -20,7 +20,7 @@ from pyqrack import QrackSimulator
 
 np.random.seed(0)
 
-verbose = False
+verbose = True
 
 # saved circuits for display
 num_gates = 0
@@ -115,6 +115,7 @@ def QuantumFourierTransform (num_qubits, secret_int, method=1):
         exit("Invalid QFT method")
 
     # measure all qubits
+    # COMMENTING OUT DUE TO QUANDELA
     qc.measure(qr, cr)
     num_gates += num_qubits
     depth += 1
@@ -338,7 +339,7 @@ def run (min_qubits = 2, max_qubits = 8, max_circuits = 3, num_shots = 100,
     print("\nInverse QFT Circuit ="); print(QFTI_)
      
     # Plot metrics for all circuit sizes
-    #metrics.plot_metrics(f"Benchmark Results - Quantum Fourier Transform ({method}) - Qiskit")
+    metrics.plot_metrics(f"Benchmark Results - Quantum Fourier Transform ({method}) - Qiskit")
     return metrics.extract_data()
 
 
@@ -346,30 +347,41 @@ def run (min_qubits = 2, max_qubits = 8, max_circuits = 3, num_shots = 100,
 # but there might be cases where that wouldn't be true.
 # Also, for convenience, PyQrack can interpret a Qiskit circuit,
 # (with or without its Qiskit "Provider,"" or a PyZX circuit, or Cirq with its plugin, only)
-def fidelities_from_measurement_results(qiskit_circuit, register_width, ideal_shots = 1024):
+def fidelities_from_measurement_results(results, qiskit_circuit, register_width, ideal_shots = 1024):
+    
+    perm_count = 1 << register_width
     
     sim = QrackSimulator(qubitCount=register_width, qiskitCircuit = qiskit_circuit)
-    ideal_results = sim.measure_shots(list(range(register_width)), ideal_shots)
+    ideal_result = sim.measure_shots(list(range(register_width)), ideal_shots)
+    ideal_result = dict(Counter(ideal_result))
+    for key, value in ideal_result.items():
+        ideal_result[key] = value / ideal_shots
 
     fidelity_list = []
-    for _, measurement_list in ideal_results.items():
+    for _, measurement_list in results.items():
         # This is a logically-grouped batch of qubit measurement results, as a list of "permutations."
-        histogram = Counter(measurement_list)
-        shot_count = sum(histogram.values())
-        histogram = dict(histogram)
+        t_histogram = Counter(measurement_list)
+        shot_count = sum(t_histogram.values())
+        t_histogram = dict(t_histogram)
+        
+        histogram = {}
+        for key, value in t_histogram.items():
+            histogram[int(key, 2)] = value / shot_count
+        
         fidelity = 0
         for qubit_permutation in histogram.keys():
-            ideal_normalized_frequency = ideal_results[qubit_permutation] if qubit_permutation in ideal_results else 0
+            ideal_normalized_frequency = ideal_result[qubit_permutation] if qubit_permutation in ideal_result else 0
             normalized_frequency = histogram[qubit_permutation]
             fidelity += math.sqrt(ideal_normalized_frequency * normalized_frequency)
         fidelity *= fidelity
         # See https://github.com/SRI-International/QC-App-Oriented-Benchmarks/blob/master/_doc/POLARIZATION_FIDELITY.md
-        normalized_fidelity = (fidelity - 1) / (1 - (1 << register_width)) + 1
-        fidelity = 1 - fidelity
+        s = (perm_count - 1) / (perm_count * (1 - len(ideal_result) / perm_count))
+        normalized_fidelity = s * (fidelity - 1) + 1
         fidelity_list.append((fidelity, normalized_fidelity))
                                
     return fidelity_list
- 
+    
+
 # if main, execute method 1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run benchmarking")
@@ -385,24 +397,61 @@ if __name__ == '__main__':
     min_qubits = args.min_qubits
     max_qubits = args.max_qubits
     num_shots = args.max_qubits
+    #print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
+    #exit()
 
     # # QUANTINUUM
-    # from qiskit.transpiler.passes import RemoveBarriers
+    import os
+    from qiskit_quantinuum import QuantinuumProvider
+    from qiskit import execute
+    provider = QuantinuumProvider()
+    provider.save_account(os.environ.get("QUANTINUUM_USERNAME"))
+    backends = provider.backends()
+    backend = provider.get_backend("H1-1")
+    print(run(max_qubits=8, max_circuits=3, method=1, num_shots=1000, provider_backend=backend))
+    exit()
+    Quantinuum.save_account(os.environ.get("QUANTINUUM_USERNAME"))
+    #Quantinuum.load_account()
+
+    backends = Quantinuum.backends()
+    backend = Quantinuum.get_backend("H1-2E")
+    print(run(provider_backend=backend, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
+    exit()
+
+    qc = QuantumCircuit(2, 2)
+    qc.h(0)
+    qc.cx(0, 1)
+    qc.measure([0,1], [0,1])
+    result = execute(qc, backend).result()
+    print(result.get_counts())
+
+
     # from api_wrappers import QuantinuumAPI as QAPI
-    from qiskit import transpile
+    # from qiskit import transpile
 
-    basis_gates = ['u1', 'u2', 'u3', 'cx', 'u']
+    # basis_gates = ['u1', 'u2', 'u3', 'cx', 'u']
 
-    qc = QuantumFourierTransform(2, 1)
-    qc = transpile(qc, basis_gates=basis_gates)
-    results = {'c0': ['10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '00', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10', '10']}
-    fidelities_from_measurement_results(qc)
-    print(results)
+    # num_qubits = 3
+    # qc = QuantumFourierTransform(num_qubits, 1).decompose(reps=99)
+    # qc = transpile(qc, basis_gates=basis_gates)
     # openqasm = qc.qasm()
 
     # machine = 'H1-2E'
-    # shots = 100
+    # shots = 1_000
     # # Submit circuit to the emulator
+    # import os
+    # from qiskit.providers.honeywell import Honeywell
+    # USERNAME = os.environ.get("QUANTINUUM_USERNAME")
+    # PASSWORD = os.environ.get("QUANTINUUM_PASSWORD")
+    # Honeywell.save_account(USERNAME, 
+    #                        proxies = { 'urls': {'http':
+    #                        f'http://{USERNAME}:{PASSWORD}@qapi.quantinuum.com/',
+    #                        'https':
+    #                        f'http://{USERNAME}:{PASSWORD}@qapi.quantinuum.com/'
+    #                        } })
+
+    # backends = Honeywell.backends()
+    # backend = Honeywell.get_backend(machine)
     # qapi = QAPI(machine=machine)
     # job_id = qapi.submit_job(openqasm,
     #                          shots=shots,
@@ -414,11 +463,18 @@ if __name__ == '__main__':
     # print(status)
     
     # results = qapi.retrieve_job(job_id)
-  
-    # print(results)
+    # results = results["results"]
+    # print(fidelities_from_measurement_results(results=results, qiskit_circuit=qc, register_width=num_qubits, ideal_shots=shots))
     # # QUANTINUUM
 
-    # # QUANDELA
+    # QUANDELA
+        
+    # NOTE MUST COMMENT OUT THESE LINES ABOVE TO RUN ON QUANDELA:
+    #####
+    # measure all qubits
+    # COMMENTING OUT DUE TO QUANDELA
+    # qc.measure(qr, cr)
+
     # import qiskit
     # import perceval as pcvl
     # from perceval.converters import QiskitConverter
@@ -428,9 +484,8 @@ if __name__ == '__main__':
 
     # # Then convert the Quantum Circuit with Perceval QiskitConvertor
     # qiskit_converter = QiskitConverter(catalog, backend_name="Naive")
-    # quantum_processor = qiskit_converter.convert(qc)
-    # #pcvl.pdisplay(quantum_processor, recursive=True)
-
-    # # QUANDELA
+    # quantum_processor = qiskit_converter.convert(qc, use_postselection=False)
+    # pcvl.pdisplay(quantum_processor, recursive=True)
+    # QUANDELA
 
     #print(run(backend_id=backend_id, min_qubits=min_qubits, max_qubits=max_qubits, num_shots=num_shots))
